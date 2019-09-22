@@ -1,0 +1,83 @@
+22-SEP-2019 Matthew J. Wolf Email: matthew.wolf at speciosus.net
+
+I wanted to create a linear power supply for a Raspberry Pi 3 audio streamer.
+
+I was reviewing the LT3081 data sheet. I noticed the "Load Sharing Without
+Ballast Resistors" application. This LT3081 application fits my needs to power
+a Raspberry Pi 3 (RPI). 
+
+The data sheet design uses three LT3081 and one dual op-amp LT1638. A RPI 3
+does not need 4.5 amps of current. It needs more then the 1.5 amps a single
+LT3081 can supply. A RPI 3 needs the current supplied by at least two LT3081. 
+
+Using two LT3081 left one of the LT1638's op-amps free. The LT1638 data sheet
+lists one of it's application as "Supply Current Sensing". I decided to use
+the free op-amp and a shut resistor to sense the current output of the power
+supply.
+
+
+Why Sense the Current Output
+------------------------------
+A RPI 3 draws different amounts of current when its operating system is
+running and when it is shut down. Sensing the current can allow a power supply
+to stop supplying power when a RPI is shutdown. 
+
+
+What Does the Micro-controller Do
+---------------------------------
+The micro-controller manages a relay that controls the power supplied to the 
+RPI and the state of a power led. The state of the relay changes when a soft
+power button is pushed. The relay state also changes based on the amount of
+current the RPI is drawing. 
+
+The micro-controller's comparator peripheral is used to determine if the 
+current draw is above or below a threshold. 
+
+The current draw is sensed via a shut resistor. The shut converts the
+current to a voltage. The second LT1638 opamp amplifies the shut voltage.
+Other components to smooth and scale the shut voltage.
+
+The current threshold is set by the RV1 potentiometer.
+
+When the current draw is above the set threshold. Power is supplied to the
+RPI. The relay is closed. When the current draw is below the threshold the
+relay is open.
+
+The power button can cause the current draw to become zero. Zero is below any
+current threshold.
+
+
+Why use a Micro-controller
+--------------------------
+A soft power button and current sensing can be implemented with analog
+electronics. Using analog electronics would use more components that using
+a micro-controller. A full analog design would increase the size of the bill
+of materials (BOM).
+
+ 
+Firmware Main Loop Description
+------------------------------ 
+The firmware is written in assembly language. 
+
+1. Was the power button pushed?
+   a. No  - Do nothing.
+   b. Yes - Change the state of the relay.
+      i.  Relay Open   - Close Relay
+                       - Turn power led on.
+                       - Wait a few seconds for the current draw to rise above
+                         threshold.
+      ii. Relay Closed - Open Relay.
+                       - Turn power led off.
+
+2. Is the current draw above or below the threshold?
+   a. Above: 
+      i. Was the current above threshold?
+         A. Yes (ON)  - Relay is closed. Do nothing.
+         B. No  (OFF) - Relay is open. Close the relay. 
+                      - Turn power led on.
+   b. Below:
+      i. Was the current below the threshold?
+         A. Yes (OFF) - Relay is open. Do nothing.
+         b. No  (ON)  - Relay is closed. Open the relay. 
+                      - Turn power led off.
+
